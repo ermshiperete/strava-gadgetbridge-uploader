@@ -10,7 +10,6 @@
 			"type": "debugpy",
 			"request": "launch",
 			"program": "${workspaceFolder}/uploader.py",
-      "args": ["--verbose"],
 			"console": "integratedTerminal"
 		}
 	]

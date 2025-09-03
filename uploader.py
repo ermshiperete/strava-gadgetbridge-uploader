@@ -6,6 +6,7 @@ import json
 import logging
 import logging.config
 import os
+import re
 import sys
 import time
 import uuid
@@ -17,7 +18,6 @@ from stravalib.util.limiter import RateLimiter
 os.environ['SILENCE_TOKEN_WARNINGS'] = '1'
 
 
-logger: logging.Logger = logging.getLogger(__name__)
 DRY_RUN_PREFIX = "[DRY RUN] "
 DRY_RUN = False
 
@@ -48,9 +48,9 @@ def rate_limited(retries=2, sleep=900):
                         return f(*args, **kwargs)
                 except exc.RateLimitExceeded:
                     if i > 0:
-                        logger.error("Daily Rate limit exceeded - exiting program")
+                        logging.error("Daily Rate limit exceeded - exiting program")
                         exit(1)
-                    logger.warning("Rate limit exceeded in connecting - "
+                    logging.warning("Rate limit exceeded in connecting - "
                                    "Retrying strava connection in %d seconds", sleep)
                     time.sleep(sleep)
         return f_retry  # true decorator
@@ -83,8 +83,9 @@ class UploadToStrava:
 
 
     def upload_gpx(self, gpxfile, strava_activity_type, notes):
+        filename = os.path.basename(gpxfile)
         if not os.path.isfile(gpxfile):
-            logger.warning("No file found for %s!", gpxfile)
+            logging.warning("No file found for %s!", gpxfile)
             return False
 
         try:
@@ -93,39 +94,38 @@ class UploadToStrava:
         except exc.ActivityUploadFailed as err:
             # deal with duplicate type of error, if duplicate then continue with next file, stop otherwise
             if str(err).find('duplicate of activity'):
-                # FileUtils.archive_file(gpxfile, dry_run=self.dry_run)
-                logger.debug("Duplicate File %s", gpxfile)
+                substrings = re.findall(r"href='(.*?)'", str(err))
+                logging.warning("Duplicate File %s; duplicate activity: https://www.strava.com%s", filename, substrings[0])
                 return True
             else:
-                logger.error("Another ActivityUploadFailed error: {}".format(err))
+                logging.error("Another ActivityUploadFailed error: {}".format(err))
                 exit(1)
         except Exception as err:
             try:
-                logger.error("Exception raised: {}. Exiting...".format(err))
+                logging.error("Exception raised: {}. Exiting...".format(err))
             except:
-                logger.error("Unexpected exception. Exiting...")
+                logging.error("Unexpected exception. Exiting...")
             exit(1)
 
-        logger.info("Uploaded %s - Activity id: %s", gpxfile, str(up_result.id))
-        # FileUtils.archive_file(gpxfile, dry_run=self.dry_run)
+        logging.info("Uploaded %s - Activity id: %s", filename, str(up_result.id))
         return True
 
     def _upload(self, gpxfile, notes, strava_activity_type):
         prefix = DRY_RUN_PREFIX if self.dry_run else ""
-        logger.info(prefix + "Uploading %s", gpxfile)
+        logging.debug(prefix + "Uploading %s", os.path.basename(gpxfile))
         upload = self._upload_activity(gpxfile, notes, strava_activity_type)
-        logger.info(prefix + "Upload succeeded. Waiting for response...")
+        logging.debug(prefix + "Upload succeeded. Waiting for response...")
         return upload
 
     @rate_limited()
     def _upload_activity(self, gpx_file, notes, activity_type):
         if self.dry_run:
-            logger.info(DRY_RUN_PREFIX + "Uploading activity from GPX file: %s, activity type: %s, notes: %s",
-                        gpx_file, activity_type, notes)
+            logging.debug(DRY_RUN_PREFIX + "Uploading activity from GPX file: %s, activity type: %s, notes: %s",
+                        os.path.basename(gpx_file), activity_type, notes)
             return FakeUpload()
 
         logging.debug("Uploading activity from GPX file: %s, name: %s",
-                      gpx_file, notes)
+                      os.path.basename(gpx_file), notes)
         with open(gpx_file, "r") as f:
             upload = self.client.upload_activity(
                 activity_file=f,
@@ -191,7 +191,7 @@ class UploadToStrava:
 
     def run(self):
         if not 'Config' in self.config or not 'SyncPath' in self.config['Config']:
-            logger.error("No SyncPath found in config.ini - please create the file")
+            logging.error("No SyncPath found in config.ini - please create the file")
             exit(1)
 
         self._upload_files_from_directory(os.path.join(self.config['Config']['SyncPath'], 'Gadgetbridge', 'files'))
@@ -221,11 +221,11 @@ class PyWarningsFilter(logging.Filter):
 
 def init_logging():
     if args.verbose:
-        logLevel = logging.INFO
-    elif args.veryverbose:
         logLevel = logging.DEBUG
-    else:
+    elif args.quiet:
         logLevel = logging.WARNING
+    else:
+        logLevel = logging.INFO
 
     config = {
         'version': 1,
@@ -273,7 +273,7 @@ def init_logging():
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser(description='Upload GPX files to Strava.')
     argparser.add_argument('-v', '--verbose', action='store_true', help='verbose logging')
-    argparser.add_argument('-vv', '--veryverbose', action='store_true', help='very verbose logging')
+    argparser.add_argument('-q', '--quiet', action='store_true', help='quiet logging - only show warnings and errors')
     args = argparser.parse_args()
 
     init_logging()

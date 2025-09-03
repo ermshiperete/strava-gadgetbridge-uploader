@@ -1,4 +1,6 @@
 #!/bin/bash
+set -eu
+
 SYNC_PATH="$(awk -F "=" '/syncpath/ {print $2}' config.ini | tr -d ' ')"
 WORK_PATH="$(awk -F "=" '/workpath/ {print $2}' config.ini | tr -d ' ')"
 SCRIPT_DIR="$(realpath "$(dirname "$0")")"

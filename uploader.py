@@ -190,11 +190,11 @@ class UploadToStrava:
                 self.config.write(configfile)
 
     def run(self):
-        if not 'Config' in self.config or not 'SyncPath' in self.config['Config']:
-            logging.error("No SyncPath found in config.ini - please create the file")
+        if 'Config' not in self.config or 'workpath' not in self.config['Config']:
+            logging.error("No workpath found in config.ini - please create the file")
             exit(1)
 
-        self._upload_files_from_directory(os.path.join(self.config['Config']['SyncPath'], 'Gadgetbridge', 'files'))
+        self._upload_files_from_directory(os.path.join(self.config['Config']['workpath'], 'Gadgetbridge', 'files'))
 
 
 class FakeUpload:

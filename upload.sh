@@ -1,8 +1,13 @@
 #!/bin/bash
 SYNC_PATH="$(awk -F "=" '/syncpath/ {print $2}' config.ini | tr -d ' ')"
+WORK_PATH="$(awk -F "=" '/workpath/ {print $2}' config.ini | tr -d ' ')"
 SCRIPT_DIR="$(realpath "$(dirname "$0")")"
 
-cd "${SYNC_PATH}"
+[ -d "${WORK_PATH}" ] || mkdir -p "${WORK_PATH}"
+
+cp "${SYNC_PATH}/Gadgetbridge.zip" "${WORK_PATH}/Gadgetbridge.zip"
+
+cd "${WORK_PATH}"
 
 unzip -o Gadgetbridge.zip -d Gadgetbridge
 

@@ -6,9 +6,11 @@ WORK_PATH="$(awk -F "=" '/workpath/ {print $2}' config.ini | tr -d ' ')"
 SCRIPT_DIR="$(realpath "$(dirname "$0")")"
 
 if [[ ! -d "${SCRIPT_DIR}/venv" ]]; then
+  echo "Setting up..."
   python3 -m venv "${SCRIPT_DIR}/venv"
   . venv/bin/activate
   pip install stravalib
+  echo "Installation finished"
 fi
 
 . venv/bin/activate

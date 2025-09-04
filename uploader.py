@@ -199,8 +199,7 @@ class UploadToStrava:
         for filename in sorted(os.listdir(directory)):
             if filename.endswith(".gpx"):
                 if last_file is not None and filename <= last_file:
-                    logging.info('Processing %s - skipped', filename)
-                    logging.debug('Skipping %s as it is older than the last processed file', filename)
+                    logging.debug('Processing %s - skipped as it is older than the last processed file', filename)
                     continue
                 logging.info('Processing %s', filename)
                 gpx_path = os.path.join(directory, filename)

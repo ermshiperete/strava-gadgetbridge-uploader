@@ -1,9 +1,11 @@
 #!/bin/bash
 set -eu
 
-SYNC_PATH="$(awk -F "=" '/syncpath/ {print $2}' config.ini | tr -d ' ')"
-WORK_PATH="$(awk -F "=" '/workpath/ {print $2}' config.ini | tr -d ' ')"
+echo "Starting Strava uploader wrapper..." >> /tmp/strava-uploader.log
+
 SCRIPT_DIR="$(realpath "$(dirname "$0")")"
+SYNC_PATH="$(awk -F "=" '/syncpath/ {print $2}' "${SCRIPT_DIR}/config.ini" | tr -d ' ')"
+WORK_PATH="$(awk -F "=" '/workpath/ {print $2}' "${SCRIPT_DIR}/config.ini" | tr -d ' ')"
 
 if [[ ! -d "${SCRIPT_DIR}/venv" ]]; then
   echo "Setting up..."
@@ -21,7 +23,9 @@ cp "${SYNC_PATH}/Gadgetbridge.zip" "${WORK_PATH}/Gadgetbridge.zip"
 
 cd "${WORK_PATH}"
 
-unzip -o Gadgetbridge.zip -d Gadgetbridge
+unzip -q -o Gadgetbridge.zip -d Gadgetbridge
 
 cd "${SCRIPT_DIR}"
-./uploader.py "$@"
+./main.py "$@"
+
+echo "Exiting Strava uploader wrapper" >> /tmp/strava-uploader.log

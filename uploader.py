@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
-import argparse
 import configparser
 from datetime import datetime
 import json
 import logging
-import logging.config
 import os
 import re
-import sys
 import time
 import uuid
 import xml.etree.ElementTree as ET
 
 from stravalib.client import Client, exc
 from stravalib.util.limiter import RateLimiter
-
-os.environ['SILENCE_TOKEN_WARNINGS'] = '1'
 
 
 DRY_RUN_PREFIX = "[DRY RUN] "
@@ -98,48 +93,46 @@ class UploadToStrava:
                 logging.warning("Duplicate File %s; duplicate activity: https://www.strava.com%s", filename, substrings[0])
                 return True
             else:
-                logging.error("Another ActivityUploadFailed error: {}".format(err))
+                logging.error(f"Another ActivityUploadFailed error: {err}")
                 exit(1)
         except Exception as err:
             try:
-                logging.error("Exception raised: {}. Exiting...".format(err))
+                logging.error(f"Exception raised: {err}. Exiting...")
             except:
                 logging.error("Unexpected exception. Exiting...")
             exit(1)
 
-        logging.info("Uploaded %s - Activity id: %s", filename, str(up_result.id))
+        logging.info(f"Uploaded {filename} - Activity id: {up_result.id}")
         return True
 
     def _upload(self, gpxfile, notes, strava_activity_type):
         prefix = DRY_RUN_PREFIX if self.dry_run else ""
-        logging.debug(prefix + "Uploading %s", os.path.basename(gpxfile))
+        logging.debug(f"{prefix}Uploading {os.path.basename(gpxfile)}")
         upload = self._upload_activity(gpxfile, notes, strava_activity_type)
-        logging.debug(prefix + "Upload succeeded. Waiting for response...")
+        logging.debug(f"{prefix}Upload succeeded. Waiting for response...")
         return upload
 
     @rate_limited()
     def _upload_activity(self, gpx_file, notes, activity_type):
         if self.dry_run:
-            logging.debug(DRY_RUN_PREFIX + "Uploading activity from GPX file: %s, activity type: %s, notes: %s",
-                        os.path.basename(gpx_file), activity_type, notes)
+            logging.debug(
+                f"{DRY_RUN_PREFIX}Uploading activity from GPX file: {os.path.basename(gpx_file)}, activity type: {activity_type}, notes: {notes}"
+            )
             return FakeUpload()
 
-        logging.debug("Uploading activity from GPX file: %s, name: %s",
-                      os.path.basename(gpx_file), notes)
+        logging.debug(f"Uploading activity from GPX file: {os.path.basename(gpx_file)}, name: {notes}")
         with open(gpx_file, "r") as f:
-            upload = self.client.upload_activity(
+            return self.client.upload_activity(
                 activity_file=f,
                 data_type='gpx',
                 name=notes,
                 description=notes,
-                activity_type=activity_type
+                activity_type=activity_type,
             )
-            return upload
 
     @rate_limited()
     def _wait_for_upload(self, upload):
-        up_result = upload.wait()
-        return up_result
+        return upload.wait()
 
     def _get_part_of_day(self, x):
         if (x >= 6) and (x < 11):
@@ -170,9 +163,8 @@ class UploadToStrava:
 
     def _upload_files_from_directory(self, directory):
         last_file = None
-        if 'Data' in self.config:
-            if 'LastFile' in self.config['Data']:
-                last_file = self.config['Data']['LastFile']
+        if 'Data' in self.config and 'LastFile' in self.config['Data']:
+            last_file = self.config['Data']['LastFile']
         for filename in sorted(os.listdir(directory)):
             if filename.endswith(".gpx"):
                 if last_file is not None and filename <= last_file:
@@ -206,83 +198,3 @@ class FakeUpload:
         obj = Object()
         obj.id = uuid.uuid4()
         return obj
-
-
-class StravalibLoggingFilter(logging.Filter):
-    def filter(self, record):
-        # return True to accept the log record, False to reject it
-        return record.levelname != 'INFO' or not record.name.startswith('stravalib.protocol')
-
-
-class PyWarningsFilter(logging.Filter):
-    def filter(self, record):
-        # return True to accept the log record, False to reject it
-        return record.getMessage().find('FutureWarning') == -1
-
-
-def init_logging():
-    if args.verbose:
-        logLevel = logging.DEBUG
-    elif args.quiet:
-        logLevel = logging.WARNING
-    else:
-        logLevel = logging.INFO
-
-    config = {
-        'version': 1,
-        'formatters': {
-            'default': {
-                'format': '%(levelname)s: %(message)s',
-            },
-            'file': {
-                'format': '%(asctime)s %(name)s (line %(lineno)s) | %(levelname)s %(message)s',
-            },
-        },
-        'filters': {
-            'stravalib_filter': {
-                '()': StravalibLoggingFilter,
-            },
-            'pywarnings_filter': {
-                '()': PyWarningsFilter,
-            }
-        },
-
-        'handlers': {
-            'console_stdout': {
-                'class': 'logging.StreamHandler',
-                'level': logLevel,
-                'formatter': 'default',
-                'stream': sys.stdout,
-                'filters': ['stravalib_filter', 'pywarnings_filter']
-            },
-            'file': {
-                'class': 'logging.FileHandler',
-                'level': logging.DEBUG,
-                'formatter': 'file',
-                'filename': '/tmp/strava-uploader.log',
-                'encoding': 'utf8'
-            }
-        },
-        'root': {
-            'level': logging.NOTSET,
-            'handlers': ['console_stdout', 'file']
-        },
-    }
-    logging.config.dictConfig(config)
-
-
-if __name__ == '__main__':
-    argparser = argparse.ArgumentParser(description='Upload GPX files to Strava.')
-    argparser.add_argument('-v', '--verbose', action='store_true', help='verbose logging')
-    argparser.add_argument('-q', '--quiet', action='store_true', help='quiet logging - only show warnings and errors')
-    args = argparser.parse_args()
-
-    init_logging()
-
-    logging.info("--------------------------------------------------------")
-    print("Starting Strava Uploader...")
-
-    uploader = UploadToStrava()
-    uploader.run()
-
-    print("Finished Strava Uploader")

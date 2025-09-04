@@ -3,6 +3,8 @@ set -eu
 
 echo "Starting Strava uploader wrapper..." >> /tmp/strava-uploader.log
 
+trap 'echo "Exiting Strava uploader wrapper..." >> /tmp/strava-uploader.log' EXIT
+
 SCRIPT_DIR="$(realpath "$(dirname "$0")")"
 SYNC_PATH="$(awk -F "=" '/syncpath/ {print $2}' "${SCRIPT_DIR}/config.ini" | tr -d ' ')"
 WORK_PATH="$(awk -F "=" '/workpath/ {print $2}' "${SCRIPT_DIR}/config.ini" | tr -d ' ')"
@@ -27,5 +29,3 @@ unzip -q -o Gadgetbridge.zip -d Gadgetbridge
 
 cd "${SCRIPT_DIR}"
 ./main.py "$@"
-
-echo "Exiting Strava uploader wrapper" >> /tmp/strava-uploader.log

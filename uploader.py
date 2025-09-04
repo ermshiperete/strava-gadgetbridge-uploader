@@ -77,14 +77,14 @@ class UploadToStrava:
         )
 
 
-    def upload_gpx(self, gpxfile, strava_activity_type, notes):
+    def upload_gpx(self, gpxfile, strava_activity_type, name, description):
         filename = os.path.basename(gpxfile)
         if not os.path.isfile(gpxfile):
             logging.warning("No file found for %s!", gpxfile)
             return False
 
         try:
-            upload = self._upload(gpxfile, notes, strava_activity_type)
+            upload = self._upload(gpxfile, name, strava_activity_type, description)
             up_result = self._wait_for_upload(upload)
         except exc.ActivityUploadFailed as err:
             # deal with duplicate type of error, if duplicate then continue with next file, stop otherwise
@@ -105,28 +105,28 @@ class UploadToStrava:
         logging.info(f"Uploaded {filename} - Activity id: {up_result.id}")
         return True
 
-    def _upload(self, gpxfile, notes, strava_activity_type):
+    def _upload(self, gpxfile, strava_activity_type, name, description):
         prefix = DRY_RUN_PREFIX if self.dry_run else ""
         logging.debug(f"{prefix}Uploading {os.path.basename(gpxfile)}")
-        upload = self._upload_activity(gpxfile, notes, strava_activity_type)
+        upload = self._upload_activity(gpxfile, name, strava_activity_type, description)
         logging.debug(f"{prefix}Upload succeeded. Waiting for response...")
         return upload
 
     @rate_limited()
-    def _upload_activity(self, gpx_file, notes, activity_type):
+    def _upload_activity(self, gpx_file, activity_type, name, description):
         if self.dry_run:
             logging.debug(
-                f"{DRY_RUN_PREFIX}Uploading activity from GPX file: {os.path.basename(gpx_file)}, activity type: {activity_type}, notes: {notes}"
+                f"{DRY_RUN_PREFIX}Uploading activity from GPX file: {os.path.basename(gpx_file)}, activity type: {activity_type}, notes: {name}"
             )
             return FakeUpload()
 
-        logging.debug(f"Uploading activity from GPX file: {os.path.basename(gpx_file)}, name: {notes}")
+        logging.debug(f"Uploading activity from GPX file: {os.path.basename(gpx_file)}, name: {name}")
         with open(gpx_file, "r") as f:
             return self.client.upload_activity(
                 activity_file=f,
                 data_type='gpx',
-                name=notes,
-                description=notes,
+                name=name,
+                description=description,
                 activity_type=activity_type,
             )
 
@@ -146,20 +146,51 @@ class UploadToStrava:
         elif (x >= 22) or (x <= 6):
             return'Night'
 
-    def _get_name(self, gpx):
+    def _get_activity_type(self, name):
+        if name == 'Andere Wintersportarten':
+            return 'NordicSki'
+        elif name == 'Drinnen Radfahren':
+            return 'VirtualRide'
+        elif name == 'Gehen':
+            return 'Walk'
+        elif name == 'Kajakfahren':
+            return 'Kayaking'
+        elif name == 'Kitesurfen':
+            return 'Kitesurf'
+        elif name == 'Laufband':
+            return 'VirtualRun'
+        elif name in ['Laufen im Freien', 'Trail-Lauf']:
+            return 'Run'
+        elif name in ['Offenes Gewässer', 'Freistil', 'Beckenschwimmen']:
+            return 'Swim'
+        elif name == 'Paddelboarden':
+            return 'StandUpPaddling'
+        elif name == 'Radfahren im Freien':
+            return 'Ride'
+        elif name == 'Ruderer':
+            return 'Rowing'
+        elif name == 'Segeln':
+            return 'Sail'
+        elif name in ['Wandern', 'Trekking']:
+            return 'Hike'
+        elif name == 'Yoga':
+            return 'Yoga'
+        return 'Workout'
+
+    def _get_name_and_activity(self, gpx):
         tree = ET.parse(gpx)
         root = tree.getroot()
         namespaces = {'': 'http://www.topografix.com/GPX/1/1'}
-        old_name = root.find('.//name', namespaces).text
-        if old_name != 'Radfahren im Freien':
-            return old_name
+        name = root.find('.//name', namespaces).text
+        activity = self._get_activity_type(name)
+
         date_string = root.find('.//trkseg/trkpt/time', namespaces).text
         if date_string is None:
-            return old_name
+            return name, activity, name
 
         # 2025-08-27T06:08:01Z
         date = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S%z").astimezone(datetime.now().tzinfo)
-        return f'{self._get_part_of_day(date.hour)} Ride'
+        return f'{self._get_part_of_day(date.hour)} {activity}', activity, name
 
     def _upload_files_from_directory(self, directory):
         last_file = None
@@ -173,7 +204,8 @@ class UploadToStrava:
                     continue
                 logging.info('Processing %s', filename)
                 gpx_path = os.path.join(directory, filename)
-                self.upload_gpx(gpx_path, 'ride', self._get_name(gpx_path))
+                name, activity, original_name = self._get_name_and_activity(gpx_path)
+                self.upload_gpx(gpx_path, activity, name, original_name)
                 last_file = filename
         if last_file is not None:
             if 'Data' not in self.config:

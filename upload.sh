@@ -21,7 +21,12 @@ fi
 
 [[ -d "${WORK_PATH}" ]] || mkdir -p "${WORK_PATH}"
 
-cp "${SYNC_PATH}/Gadgetbridge.zip" "${WORK_PATH}/Gadgetbridge.zip"
+if [[ ! -f "${SYNC_PATH}/Gadgetbridge.zip" ]]; then
+  echo "No new Gadgetbridge.zip file found" >> /tmp/strava-uploader.log
+  exit 0
+fi
+
+mv "${SYNC_PATH}/Gadgetbridge.zip" "${WORK_PATH}/Gadgetbridge.zip"
 
 cd "${WORK_PATH}"
 

@@ -24,10 +24,13 @@ class PyWarningsFilter(logging.Filter):
 def init_logging():
     if args.verbose:
         logLevel = logging.DEBUG
+        handlers = ['console_stdout', 'file']
     elif args.quiet:
         logLevel = logging.WARNING
+        handlers = []
     else:
         logLevel = logging.INFO
+        handlers = ['console_stdout']
 
     config = {
         'version': 1,
@@ -66,7 +69,7 @@ def init_logging():
         },
         'root': {
             'level': logging.NOTSET,
-            'handlers': ['console_stdout', 'file']
+            'handlers': handlers
         },
     }
     logging.config.dictConfig(config)

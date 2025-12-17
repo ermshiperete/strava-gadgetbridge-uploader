@@ -1,20 +1,24 @@
 #!/bin/bash
 set -eu
 
-echo "Starting Strava uploader wrapper..." >> /tmp/strava-uploader.log
+log() {
+  echo "$(date --iso-8601=seconds)${*}" | tee --append /tmp/strava-uploader.log
+}
 
-trap 'echo "Exiting Strava uploader wrapper..." >> /tmp/strava-uploader.log' EXIT
+log "Starting Strava uploader wrapper..."
+
+trap 'log "Exiting Strava uploader wrapper..."' EXIT
 
 SCRIPT_DIR="$(realpath "$(dirname "$0")")"
 SYNC_PATH="$(awk -F "=" '/syncpath/ {print $2}' "${SCRIPT_DIR}/config.ini" | tr -d ' ')"
 WORK_PATH="$(awk -F "=" '/workpath/ {print $2}' "${SCRIPT_DIR}/config.ini" | tr -d ' ')"
 
 if [[ ! -d "${SCRIPT_DIR}/venv" ]]; then
-  echo "Setting up..."
+  log "Setting up..."
   python3 -m venv "${SCRIPT_DIR}/venv"
   . "${SCRIPT_DIR}/venv/bin/activate"
   pip install stravalib
-  echo "Installation finished"
+  log "Installation finished"
 fi
 
 . "${SCRIPT_DIR}/venv/bin/activate"
@@ -22,7 +26,7 @@ fi
 [[ -d "${WORK_PATH}" ]] || mkdir -p "${WORK_PATH}"
 
 if [[ ! -f "${SYNC_PATH}/Gadgetbridge.zip" ]]; then
-  echo "No new Gadgetbridge.zip file found" >> /tmp/strava-uploader.log
+  log "No new Gadgetbridge.zip file found"
   exit 0
 fi
 

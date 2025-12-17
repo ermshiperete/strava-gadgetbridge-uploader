@@ -2,7 +2,7 @@
 set -eu
 
 log() {
-  echo "$(date --iso-8601=seconds)${*}" | tee --append /tmp/strava-uploader.log
+  echo "$(date --iso-8601=seconds): ${*}" | tee --append /tmp/strava-uploader.log
 }
 
 log "Starting Strava uploader wrapper..."

@@ -23,18 +23,21 @@ fi
 
 . "${SCRIPT_DIR}/venv/bin/activate"
 
-[[ -d "${WORK_PATH}" ]] || mkdir -p "${WORK_PATH}"
+if [[ "$1" != "--help" ]]; then
+  [[ -d "${WORK_PATH}" ]] || mkdir -p "${WORK_PATH}"
 
-if [[ ! -f "${SYNC_PATH}/Gadgetbridge.zip" ]]; then
-  log "No new Gadgetbridge.zip file found"
-  exit 0
+  if [[ ! -f "${SYNC_PATH}/Gadgetbridge.zip" ]]; then
+    log "No new Gadgetbridge.zip file found"
+    exit 0
+  fi
+
+  mv "${SYNC_PATH}/Gadgetbridge.zip" "${WORK_PATH}/Gadgetbridge.zip"
+
+  cd "${WORK_PATH}"
+
+  unzip -q -o Gadgetbridge.zip -d Gadgetbridge
+
+  cd "${SCRIPT_DIR}"
 fi
 
-mv "${SYNC_PATH}/Gadgetbridge.zip" "${WORK_PATH}/Gadgetbridge.zip"
-
-cd "${WORK_PATH}"
-
-unzip -q -o Gadgetbridge.zip -d Gadgetbridge
-
-cd "${SCRIPT_DIR}"
 ./main.py "$@"

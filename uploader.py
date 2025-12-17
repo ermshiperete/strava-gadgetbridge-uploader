@@ -178,19 +178,23 @@ class UploadToStrava:
         return 'Workout'
 
     def _get_name_and_activity(self, gpx):
-        tree = ET.parse(gpx)
-        root = tree.getroot()
-        namespaces = {'': 'http://www.topografix.com/GPX/1/1'}
-        name = root.find('.//name', namespaces).text
-        activity = self._get_activity_type(name)
+        try:
+            tree = ET.parse(gpx)
+            root = tree.getroot()
+            namespaces = {'': 'http://www.topografix.com/GPX/1/1'}
+            name = root.find('.//name', namespaces).text
+            activity = self._get_activity_type(name)
 
-        date_string = root.find('.//trkseg/trkpt/time', namespaces).text
-        if date_string is None:
-            return name, activity, name
+            date_string = root.find('.//trkseg/trkpt/time', namespaces).text
+            if date_string is None:
+                return name, activity, name
 
-        # 2025-08-27T06:08:01Z
-        date = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S%z").astimezone(datetime.now().tzinfo)
-        return f'{self._get_part_of_day(date.hour)} {activity}', activity, name
+            # 2025-08-27T06:08:01Z
+            date = datetime.strptime(date_string, "%Y-%m-%dT%H:%M:%S%z").astimezone(datetime.now().tzinfo)
+            return f'{self._get_part_of_day(date.hour)} {activity}', activity, name
+        except Exception as e:
+            logging.info(f'Got exception reading {gpx}: {e}')
+            return '', '', ''
 
     def _upload_files_from_directory(self, directory):
         last_file = None
@@ -204,7 +208,8 @@ class UploadToStrava:
                 logging.info('Processing %s', filename)
                 gpx_path = os.path.join(directory, filename)
                 name, activity, original_name = self._get_name_and_activity(gpx_path)
-                self.upload_gpx(gpx_path, activity, name, original_name)
+                if name:
+                    self.upload_gpx(gpx_path, activity, name, original_name)
                 last_file = filename
         if last_file is not None:
             if 'Data' not in self.config:

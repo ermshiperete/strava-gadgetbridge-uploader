@@ -23,7 +23,7 @@ fi
 
 . "${SCRIPT_DIR}/venv/bin/activate"
 
-if [[ "$1" != "--help" ]]; then
+if [[ "${1:-}" != "--help" ]]; then
   [[ -d "${WORK_PATH}" ]] || mkdir -p "${WORK_PATH}"
 
   if [[ ! -f "${SYNC_PATH}/Gadgetbridge.zip" ]]; then
